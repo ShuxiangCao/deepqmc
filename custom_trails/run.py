@@ -9,9 +9,13 @@ import deepqmc
 from deepqmc.train import train
 from deepqmc.sampling import combine_samplers, DecorrSampler, MetropolisSampler, initialize_sampling
 from deepqmc.hamil import MolecularHamiltonian,Molecule
+from deepqmc.log import H5Logger
 
 
 def run(ansatz_func, save_path, steps, electron_batch_size, seed):
+
+    h5_logger_constructor=partial(H5Logger, keys_whitelist=['local_energy', 'time','r'])
+
     mol = Molecule(  # LiH
         coords=[[0.0, 0.0, 0.0], [3.015, 0.0, 0.0]],
         charges=[3, 1],
@@ -30,14 +34,17 @@ def run(ansatz_func, save_path, steps, electron_batch_size, seed):
     config_dir = os.path.join(deepqmc_dir, 'conf/task/opt')
 
     with initialize_config_dir(version_base=None, config_dir=config_dir):
-        cfg = compose(config_name='kfac')
+        # cfg = compose(config_name='kfac')
+        # cfg = compose(config_name='kfac')
+        cfg = compose(config_name='adamw')
 
     kfac = instantiate(cfg, _recursive_=True, _convert_='all')
 
     train(
         H, ansatz, kfac, sampler_factory,
         steps=steps, electron_batch_size=electron_batch_size, seed=seed,
-        workdir=save_path
+        workdir=save_path,
+        h5_logger_constructor=h5_logger_constructor
     )
 
 

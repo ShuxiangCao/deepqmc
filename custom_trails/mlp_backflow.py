@@ -25,7 +25,7 @@ class MyWF(hk.Module):
         self.env = ExponentialEnvelopes(hamil, n_determinants, isotropic=False, per_shell=False,
                                         per_orbital_exponent=False, spin_restricted=False, init_to_ones=False,
                                         softplus_zeta=False)
-        self.cusp_electrons = ElectronicCuspAsymptotic(same_scale=0.25, anti_scale=0.5, alpha=1, trainable_alpha=True,
+        self.cusp_electrons = ElectronicCuspAsymptotic(same_scale=0.25, anti_scale=0.5, alpha=1, trainable_alpha=False,
                                                        cusp_function=PsiformerCusp())
 
     @property
@@ -132,9 +132,11 @@ class MyWF(hk.Module):
         # jax.debug.print('same_dists {same_dists}', same_dists=same_dists)
         # jax.debug.print('anti_dists {anti_dists}', anti_dists=anti_dists)
         cusp = self.cusp_electrons(same_dists, anti_dists)
-        log_psi += cusp
+        # log_psi += cusp
+        # grad_test = jax.grad(log_psi)
         # ___________________________
         # jax.debug.print('cusp {cusp}', cusp=cusp)
+        # jax.debug.print('grad {grad}', grad=grad_test)
 
         return Psi(sign_psi, log_psi)
 
