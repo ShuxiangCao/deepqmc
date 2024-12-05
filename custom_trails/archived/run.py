@@ -1,4 +1,3 @@
-import copy
 import os
 import sys
 import importlib.util
@@ -49,14 +48,13 @@ def run(ansatz_func, save_path, steps, electron_batch_size, seed):
     )
 
 
-@click.command(context_settings=dict(allow_extra_args=True, ignore_unknown_options=True))
+@click.command()
 @click.argument('python_file')
 @click.option('--output_directory', default=None, help='Directory where the output will be saved.')
 @click.option('--steps', default=500, type=int, help='Number of training steps. Default is 500.')
 @click.option('--electron-batch-size', default=2000, type=int, help='Batch size for electrons. Default is 2000.')
 @click.option('--seed', default=42, type=int, help='Random seed for reproducibility. Default is 42.')
-@click.pass_context
-def main(ctx, python_file, output_directory, steps, electron_batch_size, seed):
+def main(python_file, output_directory, steps, electron_batch_size, seed):
     """
     Run the quantum chemistry workflow.
 
@@ -65,33 +63,17 @@ def main(ctx, python_file, output_directory, steps, electron_batch_size, seed):
     OUTPUT_DIRECTORY: Directory where the output will be saved.
     """
 
-    params = copy.copy(ctx.params)
-
-    if ctx.args:
-        params.update(dict(
-            [(ctx.args[i][2:],ctx.args[i+1]) for i in range(0, len(ctx.args), 2)]
-        ))
-
     # Set default output directory if not provided
     if output_directory is None:
-
-        exclude_keys = [
-            'python_file', 'output_directory'
-        ]
-
-        params_list = [f'{k}_{v}' for k,v in ctx.params.items() if k not in exclude_keys]
-        params_name = '.'.join(params_list)
-        if params_name:
-            params_name = f'.{params_name}'
-        output_directory = f"{python_file}{params_name}.o"
+        output_directory = f"{python_file}.o"
 
     # Process the input Python file
     if python_file.startswith("builtin"):
-        config_name = python_file.split(".")[1]
+        params = python_file.split(".")[1]
         python_file = "built_in.py"
     else:
         python_file = python_file + '.py'
-        config_name = None
+        params = None
 
     # Validate the Python file path
     if not os.path.isfile(python_file):
@@ -128,10 +110,8 @@ def main(ctx, python_file, output_directory, steps, electron_batch_size, seed):
 
     initialize_wf = getattr(module, "initialize_wf")
 
-    if config_name is not None:
-        initialize_wf = partial(initialize_wf, config_name=config_name)
-
-    initialize_wf = partial(initialize_wf, **params)
+    if params is not None:
+        initialize_wf = partial(initialize_wf, config_name=params)
 
     # Initialize the wave function
     run(initialize_wf, output_directory, steps, electron_batch_size, seed)
