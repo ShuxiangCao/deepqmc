@@ -79,7 +79,7 @@ def main(ctx, python_file, output_directory, steps, electron_batch_size, seed):
             'python_file', 'output_directory'
         ]
 
-        params_list = [f'{k}_{v}' for k,v in ctx.params.items() if k not in exclude_keys]
+        params_list = [f'{k}_{v}' for k,v in params.items() if k not in exclude_keys]
         params_name = '.'.join(params_list)
         if params_name:
             params_name = f'.{params_name}'

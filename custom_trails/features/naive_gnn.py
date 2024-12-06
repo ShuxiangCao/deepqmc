@@ -10,40 +10,54 @@ import jax
 import jax.numpy as jnp
 import haiku as hk
 
-def features(self, phys_conf: PhysicalConfiguration):
-    n_elec = self.n_up + self.n_down
+class NaiveGNN(hk.Module):
+    def __init__(
+            self,
+            name='NaiveGNNFeatures',
+            **kwargs
 
-    # physconf.r -> [n_elec, 3(x,y,z)]
-    # physconf.R -> [n_nuc, 3(x,y,z)]
+    ):
+        self.kwargs = kwargs
+        self.n_up = kwargs['n_up']
+        self.n_down = kwargs['n_down']
+        super().__init__(name=name)
 
-    elec_nuc_diffs = pairwise_diffs(phys_conf.r, phys_conf.R)
+    def __call__(self, phys_conf: PhysicalConfiguration):
+        n_elec = self.kwargs['n_up'] + self.kwargs['n_down']
 
-    # elec_nuc_diffs -> [n_elec, n_nuc * 3(x,y,z)]
-    elec_nuc_dist, elec_nuc_diffs = elec_nuc_diffs[:, :, -1] ** 0.5, elec_nuc_diffs[:, :, :-1]
-    elec_elec_diffs = pairwise_diffs(phys_conf.r, phys_conf.r)
-    # Transform it to [n_elec, n_elec, 1]
+        # physconf.r -> [n_elec, 3(x,y,z)]
+        # physconf.R -> [n_nuc, 3(x,y,z)]
 
-    # INPUT FEATURES
-    # ___________________________
-    rescaled_diffs = elec_nuc_diffs * jnp.log(1 + elec_nuc_dist)[..., None] / elec_nuc_dist[..., None]
+        elec_nuc_diffs = pairwise_diffs(phys_conf.r, phys_conf.R)
 
-    local_embeddings = jnp.concatenate((
-        rescaled_diffs.reshape([n_elec, -1]),
-        jnp.log(1 + elec_nuc_dist)), axis=1)
+        # elec_nuc_diffs -> [n_elec, n_nuc * 3(x,y,z)]
+        elec_nuc_dist, elec_nuc_diffs = elec_nuc_diffs[:, :, -1] ** 0.5, elec_nuc_diffs[:, :, :-1]
+        elec_elec_diffs = pairwise_diffs(phys_conf.r, phys_conf.r)
+        # Transform it to [n_elec, n_elec, 1]
 
-    elec_emebeddings = jnp.concatenate((
-        local_embeddings,
-        jnp.concatenate((jnp.ones(self.n_up), -jnp.ones(self.n_down)))[..., None]),
-        axis=-1)
+        # INPUT FEATURES
+        # ___________________________
+        rescaled_diffs = elec_nuc_diffs * jnp.log(1 + elec_nuc_dist)[..., None] / elec_nuc_dist[..., None]
 
-    # output_shape : n_elec, embedding
-    # ___________________________
+        local_embeddings = jnp.concatenate((
+            rescaled_diffs.reshape([n_elec, -1]),
+            jnp.log(1 + elec_nuc_dist)), axis=1)
 
-    # GNN BLOCK
-    # ___________________________
-    h = hk.Linear(64)(elec_emebeddings)
-    for _ in range(3):
-        h = h + jnp.einsum('ijk->ik',
-                           hk.nets.MLP([32, 64], activation=jax.nn.sigmoid, with_bias=False)(elec_elec_diffs))
+        elec_emebeddings = jnp.concatenate((
+            local_embeddings,
+            jnp.concatenate((jnp.ones(self.n_up), -jnp.ones(self.n_down)))[..., None]),
+            axis=-1)
 
-    return h
+        # output_shape : n_elec, embedding
+        # ___________________________
+
+        # GNN BLOCK
+        # ___________________________
+        h = hk.Linear(64)(elec_emebeddings)
+        for _ in range(3):
+            h = h + jnp.einsum('ijk->ik',
+                               hk.nets.MLP([32, 64], activation=jax.nn.sigmoid, with_bias=False)(elec_elec_diffs))
+
+        return h
+
+features = NaiveGNN

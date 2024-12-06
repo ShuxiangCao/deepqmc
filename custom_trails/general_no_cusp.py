@@ -42,7 +42,7 @@ class MyWF(hk.Module):
             n_determinants=16,
             **kwargs
     ):
-        print(kwargs)
+        self.kwargs = kwargs
         super().__init__()
         self.mol = hamil.mol
         self.n_up, self.n_down = hamil.n_up, hamil.n_down
@@ -52,10 +52,20 @@ class MyWF(hk.Module):
                                         per_orbital_exponent=False, spin_restricted=False, init_to_ones=False,
                                         softplus_zeta=False)
 
+        kwargs.update({
+            'n_up': self.n_up,
+            'n_down': self.n_down,
+            'n_determinants': self.n_determinants,
+            'env': self.env,
+            'mol': self.mol,
+            'charges': self.charges
+        })
+
         assert 'features' in kwargs, "Please provide the features for the model"
         assert 'model' in kwargs, "Please provide the model name for the model"
-        self.features_func = dynamic_load(f"./features/{kwargs['features']}.py",'features')
-        self.model_func = dynamic_load(f"./models/{kwargs['model']}.py",'model')
+        self.features_func = dynamic_load(f"./features/{kwargs['features']}.py",'features')(
+            **kwargs)
+        self.model_func = dynamic_load(f"./models/{kwargs['model']}.py",'model')(**kwargs)
 
     @property
     def spin_slices(self):
@@ -65,8 +75,8 @@ class MyWF(hk.Module):
 
         n_elec = self.n_up + self.n_down
 
-        h = self.features_func(self,phys_conf)
-        h = self.model_func(self,h)
+        h = self.features_func(phys_conf)
+        h = self.model_func(h)
 
         f = hk.Linear(self.n_determinants * n_elec)(h).reshape(n_elec, self.n_determinants, n_elec).swapaxes(0, 1)
         # ___________________________
