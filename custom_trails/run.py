@@ -36,16 +36,18 @@ def run(ansatz_func, save_path, steps, electron_batch_size, seed):
 
     with initialize_config_dir(version_base=None, config_dir=config_dir):
         # cfg = compose(config_name='kfac')
-        # cfg = compose(config_name='kfac')
-        cfg = compose(config_name='adamw')
+        cfg = compose(config_name='kfac')
+        # cfg = compose(config_name='adamw')
 
-    kfac = instantiate(cfg, _recursive_=True, _convert_='all')
+    kfac = instantiate(cfg, _recursive_=True, _convert_='all',
+                       )
 
     train(
         H, ansatz, kfac, sampler_factory,
         steps=steps, electron_batch_size=electron_batch_size, seed=seed,
         workdir=save_path,
-        h5_logger_constructor=h5_logger_constructor
+        h5_logger_constructor=h5_logger_constructor,
+        max_eq_steps=0
     )
 
 
