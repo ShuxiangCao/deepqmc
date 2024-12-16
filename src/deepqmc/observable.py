@@ -293,4 +293,5 @@ def default_observable_monitors() -> list[ObservableMonitor]:
     return [
         EnergyMonitor(save_samples=True, period=1),
         WaveFunctionMonitor(save_samples=True, period=1),
+        ElectronPositionMonitor(save_samples=True, period=1),
     ]

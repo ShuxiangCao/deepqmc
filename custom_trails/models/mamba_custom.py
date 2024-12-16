@@ -48,7 +48,7 @@ class ModelArgs:
 
 class ResidualBlock:
     def __init__(
-        self, layer_id: int, weights: Mapping[str, np.ndarray], args: ModelArgs
+        self, layer_id: int, weights: Mapping[str, jnp.ndarray], args: ModelArgs
     ):
         """
         Residual block for Mamba-based models.
@@ -60,36 +60,18 @@ class ResidualBlock:
         """
         self.args = args
         self.mixer = MambaBlock(
-            in_proj=hk.Linear(
-                weight=weights.get(f"layers.{layer_id}.mixer.in_proj.weight"),
-                bias=None,
+            in_proj=hk.Linear(64),
+            conv1d=hk.Conv1D(
             ),
-            conv1d=MambaConv1d(
-                weight=weights.get(f"layers.{layer_id}.mixer.conv1d.weight"),
-                bias=weights.get(f"layers.{layer_id}.mixer.conv1d.bias"),
-            ),
-            x_proj=Linear(
-                weight=weights.get(f"layers.{layer_id}.mixer.x_proj.weight"),
-                bias=None,
-            ),
-            dt_proj=Linear(
-                weight=weights.get(f"layers.{layer_id}.mixer.dt_proj.weight"),
-                bias=weights.get(f"layers.{layer_id}.mixer.dt_proj.bias"),
-            ),
-            A_log=weights.get(f"layers.{layer_id}.mixer.A_log"),
-            D=weights.get(f"layers.{layer_id}.mixer.D"),
-            out_proj=Linear(
-                weight=weights.get(f"layers.{layer_id}.mixer.out_proj.weight"),
-                bias=None,
-            ),
+            x_proj=hk.Linear(64),
+            dt_proj=hk.Linear(64),
+            out_proj=hk.Linear(64),
             args=args,
         )
 
-        self.norm = RMSNorm(
-            weight=weights.get(f"layers.{layer_id}.norm.weight")
-        )
+        self.norm = hk.RMSNorm(axis=-1, create_scale=True)
 
-    def __call__(self, x: np.ndarray) -> np.ndarray:
+    def __call__(self, x: jnp.ndarray) -> jnp.ndarray:
         """
         Forward pass through the residual block.
 
@@ -300,17 +282,16 @@ class Mamba:
             args (ModelArgs): Model-specific arguments.
         """
         self.args = args
-        self.embedding = Embedding(weight=weights.get("embedding.weight"))
         self.layers = [
             ResidualBlock(i, weights, args) for i in range(args.n_layer)
         ]
-        self.norm_f = RMSNorm(weight=weights.get("norm_f.weight"))
+        self.norm_f = hk.RMSNorm(axis=-1, create_scale=True)
 
         # Tie output projection to embedding weights.
         # See "Weight Tying" paper
-        self.lm_head = Linear(weight=self.embedding.weight, bias=None)
+        self.lm_head = hk.Linear()
 
-    def __call__(self, input_ids: jnp.ndarray) -> jnp.ndarray:
+    def __call__(self, x: jnp.ndarray) -> jnp.ndarray:
         """
         Forward pass through the Mamba model.
 
@@ -323,7 +304,6 @@ class Mamba:
         Official Implementation:
             class MambaLMHeadModel, see https://github.com/state-spaces/mamba/blob/main/mamba_ssm/models/mixer_seq_simple.py#L118
         """
-        x = self.embedding(input_ids)
 
         for layer in self.layers:
             x = layer(x)

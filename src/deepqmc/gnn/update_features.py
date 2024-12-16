@@ -351,3 +351,63 @@ class CombinedNodeAttentionUpdateFeature(UpdateFeature):
             mlp_out = self.mlp_residual(attended, mlp_out)
         nuclei_out, electrons_out = jnp.split(mlp_out, [nodes.nuclei.shape[0]], axis=0)
         return [GraphNodes(nuclei_out, electrons_out)]
+
+from deepqmc.ssm.s4 import S4Stack, S4
+from deepqmc.ssm.s5 import S5Stack, S5
+
+class NodeSSMElectronUpdateFeature(UpdateFeature):
+    r"""Create a single update feature by attenting over the nodes.
+
+    Returns the SSM update feature based on SMM over the nodes.
+
+    Args:
+        n_up (int): number of spin up electrons
+        n_down (int): number of spin down electrons
+        two_particle_stream_dim (int): dimension of the two-particle stream
+        node_edge_mapping (~deepqmc.gnn.utils.NodeEdgeMapping): mapping between the
+            various node and edge types.
+        num_heads (int): number of attention heads
+        mlp_factory (~typing.Type[~deepqmc.hkext.MLP]): factory function for the MLP
+        attention_residual (Optional[~deepqmc.hkext.Residual]): optional residual
+            connection after the attention layer
+        mlp_residual (Optional[~deepqmc.hkext.Residual]): optional residual
+            connection after the MLP layer
+    """
+
+    def __init__(self, *args, state_size, mlp_factory, attention_residual, mlp_residual,
+                 basis_measure='fourier_decay'):
+        super().__init__(*args)
+        self.state_size = state_size
+        self.basis_measure = basis_measure
+        self.attention_residual = attention_residual
+        self.mlp_residual = mlp_residual
+        self.mlp_factory = mlp_factory
+        self.s4 = S4(
+            state_size=state_size,
+            basis_measure=basis_measure,
+            seq_length=4,
+            dplr=False,
+            inference_mode=False,
+        )
+        self.s4_stack = S4Stack(
+            ssm=self.s4,
+            n_layers=1,
+            d_model=4,
+            d_output=64,
+            dropout_rate=0,
+            inference_mode=False,
+        )
+
+    def __call__(
+        self, nodes: GraphNodes, edges: Mapping[str, GraphEdges]
+    ) -> Sequence[GraphNodes]:
+        h = nodes.electrons
+
+        mlp = self.mlp_factory(h.shape[-1], name='mlp')
+        ssmed = self.s4_stack(h)
+        #if self.attention_residual:
+        #    attended = self.attention_residual(h, ssmed)
+        #mlp_out = mlp(attended)
+        #if self.mlp_residual:
+        #    mlp_out = self.mlp_residual(attended, mlp_out)
+        return [GraphNodes(None, ssmed)]

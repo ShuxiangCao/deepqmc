@@ -12,18 +12,22 @@ from deepqmc.sampling import combine_samplers, DecorrSampler, MetropolisSampler,
 from deepqmc.hamil import MolecularHamiltonian,Molecule
 from deepqmc.log import H5Logger
 
+# Another molecue
+
 
 def run(ansatz_func, save_path, steps, electron_batch_size, seed):
 
     h5_logger_constructor=partial(H5Logger, keys_whitelist=['local_energy', 'time','r'])
 
-    mol = Molecule(  # LiH
-        coords=[[0.0, 0.0, 0.0], [3.015, 0.0, 0.0]],
-        charges=[3, 1],
-        charge=0,
-        spin=0,
-        unit='bohr',
-    )
+    #mol = Molecule(  # LiH
+    #    coords=[[0.0, 0.0, 0.0], [3.015, 0.0, 0.0]],
+    #    charges=[3, 1],
+    #    charge=0,
+    #    spin=0,
+    #    unit='bohr',
+    #)
+
+    mol = Molecule.from_name('NH3')
 
     H = MolecularHamiltonian(mol=mol)
     ansatz = ansatz_func(H)
@@ -47,7 +51,7 @@ def run(ansatz_func, save_path, steps, electron_batch_size, seed):
         steps=steps, electron_batch_size=electron_batch_size, seed=seed,
         workdir=save_path,
         h5_logger_constructor=h5_logger_constructor,
-        max_eq_steps=0
+        #max_eq_steps=0
     )
 
 
